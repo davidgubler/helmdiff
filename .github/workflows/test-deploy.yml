@@ -3,10 +3,12 @@ env:
   REGISTRY: registry.lab-cloudscale-rma-0.appuio.cloud
   TEST_DOMAIN: apps.lab-cloudscale-rma-0.appuio.cloud
 jobs:
-  build:
+  deploy:
     environment: test
     runs-on: ubuntu-latest
     steps:
+    - name: Ensure we are running on a tag
+      run: "test '${{ github.ref_type }}' == 'tag'"
     - uses: actions/checkout@v4
     - uses: ./.github/actions/setup
       with:
@@ -14,16 +16,13 @@ jobs:
     - env:
         NEWLINE: |2+
 
-      name: Helm Chart preview
+      name: Helm Chart deploy
       run: |
         jq -n '.env=env' > env.yaml
         jq 'select(.!=null)|{vars:.,env:.}' > vars.yaml <<'EOF' ${{ env.NEWLINE }}${{ toJson(vars) }}${{ env.NEWLINE }}EOF
         jq 'select(.!=null)|{secrets:.,env:.}' > secrets.yaml <<'EOF' ${{ env.NEWLINE }}${{ toJson(secrets) }}${{ env.NEWLINE }}EOF
         cp "${KUBECONFIG}" ".github-ci.kubeconfig"
-        docker run -v "${PWD}:/data" -w /data ghcr.io/appuio/helm:latest /bin/bash -c "cp .github-ci.kubeconfig /tmp/github-ci.kubeconfig; chmod 400 /tmp/github-ci.kubeconfig; /bin/helm dependency update .; HELM_DIFF_USE_UPGRADE_DRY_RUN=true /bin/helm diff upgrade 'test' . --namespace '${NAMESPACE}' --values "values.yaml" --values "env.yaml" --values vars.yaml --values secrets.yaml --kubeconfig /tmp/github-ci.kubeconfig --allow-unreleased"
-name: Build and preview deployment to test
+        docker run -v "${PWD}:/data" -w /data ghcr.io/appuio/helm:latest /bin/bash -c "cp .github-ci.kubeconfig /tmp/github-ci.kubeconfig; chmod 400 /tmp/github-ci.kubeconfig; /bin/helm dependency update .; /bin/helm upgrade --install 'test' . --namespace '${NAMESPACE}' --values "values.yaml" --values "env.yaml" --values vars.yaml --values secrets.yaml --kubeconfig /tmp/github-ci.kubeconfig"
+name: Deploy to test
 "on":
-  push:
-    branches:
-    - main
   workflow_dispatch: {}
