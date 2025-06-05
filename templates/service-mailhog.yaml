@@ -1,0 +1,20 @@
+{{ if hasSuffix "-test" .Release.Name }}
+kind: Service
+apiVersion: v1
+metadata:
+  name: mailhog
+  labels:
+    k8ify.service: 'mailhog'
+spec:
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8025
+      targetPort: http
+    - name: tcp-smtp
+      protocol: TCP
+      port: 1025
+      targetPort: tcp-smtp
+  selector:
+    k8ify.service: mailhog
+{{ end }}
